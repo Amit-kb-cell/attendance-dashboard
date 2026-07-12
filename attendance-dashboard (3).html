@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Attendance Board</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#F7F8FA;
+    --panel:#FFFFFF;
+    --panel-2:#F0F2F5;
+    --line:#E2E6EB;
+    --text:#1A2027;
+    --muted:#5C6773;
+    --muted-2:#8B95A1;
+
+    --p-color:#1E9E82;   /* Present */
+    --wfh-color:#3D74E0; /* Work from home */
+    --fto-color:#9256C4; /* Flexible time off */
+    --hd-color:#D98A1E;  /* Half day */
+    --pm-color:#D63C74;  /* Permission */
+    --ml-color:#D64545;  /* Medical leave */
+    --off-color:#EDEFF2; /* weekend/blank */
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    padding:32px;
+    min-height:100vh;
+  }
+
+  .wrap{max-width:1400px;margin:0 auto;}
+
+  /* ---------- Header ---------- */
+  .header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:20px;
+    margin-bottom:28px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:24px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--p-color);
+    box-shadow:0 0 0 3px rgba(30,158,130,0.16);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.4;}
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:34px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .header-right{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .sync-info{
+    text-align:right;
+    font-size:12px;
+    color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .sync-info span{color:var(--text);}
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    padding:10px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  button:hover{border-color:var(--p-color);}
+  button:focus-visible{outline:2px solid var(--p-color);outline-offset:2px;}
+
+  select{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:500;
+    font-size:13px;
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  select:focus-visible{outline:2px solid var(--p-color);outline-offset:2px;}
+
+  /* ---------- Stat cards ---------- */
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .stat-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px 20px;
+    box-shadow:0 1px 2px rgba(20,30,40,0.04);
+  }
+  .stat-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;
+    margin-bottom:10px;
+  }
+  .stat-value{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:30px;
+    font-weight:600;
+    line-height:1;
+  }
+  .stat-sub{
+    font-size:12px;
+    color:var(--muted-2);
+    margin-top:6px;
+  }
+
+  /* ---------- Section titles ---------- */
+  .section{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:24px;
+    margin-bottom:20px;
+    box-shadow:0 1px 3px rgba(20,30,40,0.05);
+  }
+  .section-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 4px 0;
+  }
+  .section-sub{
+    font-size:12.5px;
+    color:var(--muted);
+    margin:0 0 18px 0;
+  }
+
+  /* ---------- Legend ---------- */
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .legend-swatch{
+    width:10px;height:10px;border-radius:2px;
+  }
+
+  /* ---------- Heatmap ---------- */
+  .heatmap-scroll{overflow-x:auto;}
+  .heatmap{
+    display:grid;
+    border-collapse:collapse;
+    min-width:900px;
+  }
+  .hm-row{display:flex;align-items:center;}
+  .hm-name{
+    width:190px;
+    min-width:190px;
+    font-size:13px;
+    font-weight:500;
+    padding-right:12px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    position:sticky;
+    left:0;
+    background:var(--panel);
+  }
+  .hm-cells{display:flex;gap:3px;}
+  .hm-cell{
+    width:24px;height:24px;
+    border-radius:4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:9px;
+    font-family:'IBM Plex Mono',monospace;
+    color:rgba(0,0,0,0.55);
+    cursor:default;
+    position:relative;
+  }
+  .hm-cell:hover::after{
+    content:attr(data-tip);
+    position:absolute;
+    bottom:130%;
+    left:50%;
+    transform:translateX(-50%);
+    background:#000;
+    color:#fff;
+    padding:4px 8px;
+    border-radius:5px;
+    font-size:11px;
+    white-space:nowrap;
+    z-index:10;
+    font-family:'Inter',sans-serif;
+  }
+  .hm-header{display:flex;align-items:center;margin-bottom:6px;}
+  .hm-header .hm-name{background:transparent;}
+  .hm-daylabel{
+    width:24px;
+    text-align:center;
+    font-size:9px;
+    color:var(--muted-2);
+    font-family:'IBM Plex Mono',monospace;
+  }
+
+  /* ---------- Charts row ---------- */
+  .charts-row{
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+    gap:20px;
+    margin-bottom:20px;
+  }
+  .chart-box{height:320px;}
+
+  /* ---------- Table ---------- */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  th{
+    text-align:left;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--muted);
+    font-weight:500;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  td{
+    padding:12px;
+    border-bottom:1px solid var(--line);
+  }
+  tr:last-child td{border-bottom:none;}
+  .badge{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:20px;
+    font-size:11px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .rate-bar-bg{
+    width:70px;height:5px;background:var(--panel-2);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px;
+  }
+  .rate-bar-fill{height:100%;background:var(--p-color);}
+
+  .config-note{
+    font-size:12px;
+    color:var(--muted-2);
+    font-family:'IBM Plex Mono',monospace;
+    margin-top:10px;
+    line-height:1.6;
+  }
+
+  @media (max-width:1000px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .charts-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> LIVE · TEAM HITL HYD</div>
+      <h1 id="monthTitle">Attendance Board</h1>
+    </div>
+    <div class="header-right">
+      <div class="sync-info">
+        SOURCE: <span id="sourceLabel">Demo data</span><br>
+        LAST SYNCED: <span id="lastSynced">—</span>
+      </div>
+      <select id="monthSelect"></select>
+      <button id="refreshBtn">Refresh now</button>
+    </div>
+  </div>
+
+  <div class="stats" id="statCards"></div>
+
+  <div class="section">
+    <p class="section-title">Presence board</p>
+    <p class="section-sub">Daily status per teammate across the month. Hover a cell for detail.</p>
+    <div class="legend" id="legend"></div>
+    <div class="heatmap-scroll">
+      <div id="heatmapHeader" class="hm-header"></div>
+      <div id="heatmap" class="heatmap"></div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="section">
+      <p class="section-title">Breakdown by teammate</p>
+      <p class="section-sub">Days logged per status this month.</p>
+      <div class="chart-box"><canvas id="breakdownChart"></canvas></div>
+    </div>
+    <div class="section">
+      <p class="section-title">Team presence trend</p>
+      <p class="section-sub">Share of team marked Present, by day.</p>
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Monthly summary</p>
+    <p class="section-sub">Totals per teammate, mirrors the sheet's summary columns.</p>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>Name</th><th>ID</th><th>Joined</th>
+          <th>WFH</th><th>FTO</th><th>Half day</th><th>Permission</th><th>Medical</th>
+          <th>Attendance rate</th>
+        </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+
+  <div class="config-note" id="configNote"></div>
+
+</div>
+
+<script>
+/* =========================================================================
+   CONFIG — point this at your Apps Script web app URL once it's deployed.
+   Leave blank to preview with the sample data below.
+   ========================================================================= */
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyMq6yZ93uG3FHBbQQLf0yj374-SvP5hFeeGGS1BKyt6KmaAdP1Kh4tIVFshwnS63OT/exec"; // e.g. "https://script.google.com/macros/s/AKfycb.../exec"
+const POLL_INTERVAL_MS = 30000; // how often to re-fetch when a URL is set
+
+/* Status metadata: label, color, whether it counts as "present" for rate calc */
+const STATUS_META = {
+  P:   { label: "Present",        color: "var(--p-color)",   present: true  },
+  WFH: { label: "Work from home", color: "var(--wfh-color)", present: true  },
+  FTO: { label: "Flexible time off", color: "var(--fto-color)", present: false },
+  HD:  { label: "Half day",       color: "var(--hd-color)",  present: true  },
+  PM:  { label: "Permission",     color: "var(--pm-color)",  present: true  },
+  ML:  { label: "Medical leave",  color: "var(--ml-color)",  present: false },
+  "-": { label: "Weekend / off",  color: "var(--off-color)", present: null  }
+};
+
+/* ---------- Sample list of months (used when no live URL is set) ---------- */
+const SAMPLE_MONTHS = ["January 2026","February 2026","March 2026","April 2026","May 2026","June 2026","July 2026"];
+
+/* ---------- Sample data, shaped exactly like the Apps Script response ---------- */
+function buildSampleData(monthName){
+  const names = [
+    ["E19582","Amit Behera","09/17/2025"],
+    ["E19556","Amishi Joshi","08/18/2025"],
+    ["E19631","Bikad Rajya Lakshmi","09/17/2025"],
+    ["E19580","Jyoti Gupta","09/17/2025"],
+    ["E19554","Priya Singh","08/04/2025"],
+    ["E19587","Swetha Oggula","08/18/2025"],
+    ["E19613","Vijay Bhargav Sikhinam","09/17/2025"]
+  ];
+  const dayLabels = {};
+  const weekday = ["Sun","Mon","Tue","Wed","Thur","Fri","Sat"];
+  for(let d=1; d<=28; d++){ dayLabels[d] = weekday[(d) % 7]; }
+
+  const pattern = [
+    "-,P,P,P,P,P,-,-,P,P,P,P,P,-,-,ML,P,P,P,P,P,-,-,P,P,P,P,P,-",
+    "-,P,WFH,WFH,WFH,P,-,-,FTO,P,P,P,P,-,-,P,WFH,P,P,P,-,-,FTO,P,WFH,P,P,-",
+    "-,FTO,P,P,P,P,-,-,P,P,P,HD,FTO,-,-,P,P,P,P,P,-,-,P,WFH,P,P,P,-",
+    "-,P,P,P,P,P,-,-,P,P,P,P,P,-,-,P,P,P,P,P,-,-,P,P,P,P,P,-",
+    "-,P,P,P,P,P,-,-,P,P,WFH,P,P,-,-,ML,WFH,P,P,P,-,-,P,P,P,P,P,-",
+    "-,P,P,P,P,P,-,-,P,P,P,FTO,FTO,-,-,P,FTO,FTO,FTO,P,-,-,P,WFH,P,P,P,-",
+    "-,P,P,P,WFH,P,-,-,P,P,P,P,P,-,-,P,P,P,P,P,-,-,P,P,P,P,P,-"
+  ];
+
+  const employees = names.map((n, i) => {
+    const codes = pattern[i].split(",");
+    const days = {};
+    for(let d=1; d<=28; d++){ days[d] = codes[d-1]; }
+    const summary = { wfh:0, fto:0, hd:0, pm:0, ml:0 };
+    Object.values(days).forEach(c=>{
+      if(c==="WFH") summary.wfh++;
+      if(c==="FTO") summary.fto++;
+      if(c==="HD")  summary.hd++;
+      if(c==="PM")  summary.pm++;
+      if(c==="ML")  summary.ml++;
+    });
+    return { id:n[0], name:n[1], joiningDate:n[2], days, summary };
+  });
+
+  return {
+    month: monthName || "July 2026",
+    lastUpdated: new Date().toISOString(),
+    dayLabels,
+    employees
+  };
+}
+
+/* ---------- Get the list of available months (tab names) ---------- */
+async function loadMonthList(){
+  if(!SHEET_API_URL){
+    return SAMPLE_MONTHS;
+  }
+  try{
+    const res = await fetch(SHEET_API_URL + "?action=list", { cache:"no-store", credentials:"include" });
+    if(!res.ok) throw new Error("Bad response");
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    return json.months || SAMPLE_MONTHS;
+  }catch(err){
+    console.error("Could not load month list, using sample months:", err);
+    return SAMPLE_MONTHS;
+  }
+}
+
+/* ---------- Raw fetch for a specific month — throws on failure, no demo fallback ---------- */
+async function fetchMonthRaw(monthName){
+  const url = SHEET_API_URL + "?month=" + encodeURIComponent(monthName);
+  const res = await fetch(url, { cache: "no-store", credentials:"include" });
+  if(!res.ok) throw new Error("Bad response");
+  const json = await res.json();
+  if(json.error) throw new Error(json.error);
+  if(!json.employees || json.employees.length === 0) throw new Error("No data on this tab yet");
+  return json;
+}
+
+/* ---------- Fetch a specific month's data if configured, else fall back to sample ---------- */
+async function loadData(monthName){
+  if(!SHEET_API_URL){
+    document.getElementById("sourceLabel").textContent = "Demo data (connect your sheet below)";
+    return buildSampleData(monthName);
+  }
+  try{
+    const url = SHEET_API_URL + "?month=" + encodeURIComponent(monthName);
+    const res = await fetch(url, { cache: "no-store", credentials:"include" });
+    if(!res.ok) throw new Error("Bad response");
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    document.getElementById("sourceLabel").textContent = "Google Sheet (live)";
+    return json;
+  }catch(err){
+    console.error("Live fetch failed, falling back to demo data:", err);
+    document.getElementById("sourceLabel").textContent = "Demo data (live fetch failed)";
+    return buildSampleData(monthName);
+  }
+}
+
+let charts = {};
+
+function render(data){
+  const { employees, dayLabels, month } = data;
+  const dayNums = Object.keys(dayLabels).map(Number).sort((a,b)=>a-b);
+
+  document.getElementById("monthTitle").textContent = "Attendance Board — " + (month || "");
+  document.getElementById("lastSynced").textContent = new Date(data.lastUpdated || Date.now()).toLocaleString();
+
+  /* ---- Stat cards ---- */
+  let totalP=0,totalWFH=0,totalFTO=0,totalHD=0,totalPM=0,totalML=0,totalCells=0;
+  employees.forEach(e=>{
+    Object.values(e.days).forEach(c=>{
+      totalCells++;
+      if(c==="P") totalP++;
+      if(c==="WFH") totalWFH++;
+      if(c==="FTO") totalFTO++;
+      if(c==="HD") totalHD++;
+      if(c==="PM") totalPM++;
+      if(c==="ML") totalML++;
+    });
+  });
+  const workingCells = totalCells - employees.reduce((sum,e)=> sum + Object.values(e.days).filter(c=>c==="-").length, 0);
+  const presentRate = workingCells ? Math.round(((totalP+totalWFH+totalHD+totalPM)/workingCells)*100) : 0;
+
+  const cards = [
+    { label:"Headcount", value: employees.length, sub:"teammates tracked" },
+    { label:"Presence rate", value: presentRate + "%", sub:"of working days" },
+    { label:"WFH days", value: totalWFH, sub:"this month, team total" },
+    { label:"Leave days", value: totalML + totalPM, sub:"medical + permission" },
+    { label:"FTO taken", value: totalFTO, sub:"flexible time off, team total" }
+  ];
+  document.getElementById("statCards").innerHTML = cards.map(c=>`
+    <div class="stat-card">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-sub">${c.sub}</div>
+    </div>
+  `).join("");
+
+  /* ---- Legend ---- */
+  document.getElementById("legend").innerHTML = Object.entries(STATUS_META)
+    .filter(([k])=>k!=="-")
+    .map(([k,m])=>`<div class="legend-item"><span class="legend-swatch" style="background:${m.color}"></span>${k} — ${m.label}</div>`)
+    .join("") + `<div class="legend-item"><span class="legend-swatch" style="background:${STATUS_META["-"].color}"></span>— weekend/off</div>`;
+
+  /* ---- Heatmap header (day numbers + weekday) ---- */
+  document.getElementById("heatmapHeader").innerHTML =
+    `<div class="hm-name"></div><div class="hm-cells">` +
+    dayNums.map(d=>`<div class="hm-daylabel">${d}</div>`).join("") +
+    `</div>`;
+
+  /* ---- Heatmap rows ---- */
+  document.getElementById("heatmap").innerHTML = employees.map(e=>{
+    const cells = dayNums.map(d=>{
+      const code = e.days[d] || "-";
+      const meta = STATUS_META[code] || STATUS_META["-"];
+      return `<div class="hm-cell" style="background:${meta.color}" data-tip="${meta.label} · Day ${d}">${code!=="-"&&code!=="P"?code:""}</div>`;
+    }).join("");
+    return `<div class="hm-row"><div class="hm-name">${e.name}</div><div class="hm-cells">${cells}</div></div>`;
+  }).join("");
+
+  /* ---- Breakdown chart (stacked bar) ---- */
+  const ctxB = document.getElementById("breakdownChart");
+  const statusKeys = ["P","WFH","FTO","HD","PM","ML"];
+  const breakdownDatasets = statusKeys.map(k=>({
+    label: k,
+    data: employees.map(e=> Object.values(e.days).filter(c=>c===k).length),
+    backgroundColor: getComputedColor(STATUS_META[k].color),
+    borderRadius: 3,
+    maxBarThickness: 28
+  }));
+  if(charts.breakdown) charts.breakdown.destroy();
+  charts.breakdown = new Chart(ctxB, {
+    type:"bar",
+    data:{ labels: employees.map(e=>e.name.split(" ")[0]), datasets: breakdownDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          position:"top",
+          labels:{ color:"#1A2027", font:{family:"Inter", size:12, weight:"600"}, boxWidth:12, boxHeight:12, padding:14 }
+        },
+        tooltip:{
+          titleFont:{ size:13, family:"Inter" },
+          bodyFont:{ size:12, family:"Inter" },
+          padding:10
+        }
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ color:"#1A2027", font:{ size:12, weight:"600" } }, grid:{ display:false } },
+        y:{ stacked:true, ticks:{ color:"#5C6773", font:{ size:11 } }, grid:{ color:"#E9ECEF" }, border:{ display:false } }
+      }
+    }
+  });
+
+  /* ---- Trend chart (daily presence %) ---- */
+  const ctxT = document.getElementById("trendChart");
+  const dailyRate = dayNums.map(d=>{
+    const codes = employees.map(e=>e.days[d]);
+    const working = codes.filter(c=>c!=="-");
+    if(working.length===0) return null;
+    const present = working.filter(c=>["P","WFH","HD","PM"].includes(c)).length;
+    return Math.round((present/working.length)*100);
+  });
+  if(charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(ctxT, {
+    type:"line",
+    data:{
+      labels: dayNums,
+      datasets:[{
+        label:"Presence %",
+        data: dailyRate,
+        borderColor: getComputedColor("var(--p-color)"),
+        borderWidth:3,
+        backgroundColor: "rgba(30,158,130,0.10)",
+        fill:true, tension:0.35, spanGaps:true,
+        pointRadius:3, pointHoverRadius:6,
+        pointBackgroundColor: "#FFFFFF",
+        pointBorderColor: getComputedColor("var(--p-color)"),
+        pointBorderWidth:2
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          titleFont:{ size:13, family:"Inter" },
+          bodyFont:{ size:12, family:"Inter" },
+          padding:10,
+          callbacks:{ label: ctx => "Presence: " + ctx.parsed.y + "%" }
+        }
+      },
+      scales:{
+        x:{ ticks:{ color:"#5C6773", font:{ size:11 }, maxTicksLimit:14 }, grid:{ display:false }, border:{ display:false } },
+        y:{ min:0, max:100, ticks:{ color:"#5C6773", font:{ size:11 }, callback:v=>v+"%" }, grid:{ color:"#E9ECEF" }, border:{ display:false } }
+      }
+    }
+  });
+
+  /* ---- Summary table ---- */
+  document.getElementById("summaryBody").innerHTML = employees.map(e=>{
+    const workingDays = Object.values(e.days).filter(c=>c!=="-").length;
+    const presentDays = Object.values(e.days).filter(c=>["P","WFH","HD","PM"].includes(c)).length;
+    const rate = workingDays ? Math.round((presentDays/workingDays)*100) : 0;
+    return `<tr>
+      <td>${e.name}</td>
+      <td style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:12px;">${e.id}</td>
+      <td style="color:var(--muted);">${e.joiningDate}</td>
+      <td>${e.summary.wfh}</td>
+      <td>${e.summary.fto}</td>
+      <td>${e.summary.hd}</td>
+      <td>${e.summary.pm}</td>
+      <td>${e.summary.ml}</td>
+      <td>
+        <span class="rate-bar-bg"><span class="rate-bar-fill" style="width:${rate}%"></span></span>${rate}%
+      </td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("configNote").innerHTML = SHEET_API_URL
+    ? "Connected to live Google Sheet endpoint. Auto-refreshing every " + Math.round(POLL_INTERVAL_MS/1000) + "s."
+    : "Showing sample data. Set SHEET_API_URL near the top of the script tag to connect your live sheet.";
+}
+
+function getComputedColor(cssVar){
+  if(!cssVar.startsWith("var(")) return cssVar;
+  const name = cssVar.slice(4, -1);
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+const monthSelect = document.getElementById("monthSelect");
+
+async function refresh(){
+  const monthName = monthSelect.value;
+  const data = await loadData(monthName);
+  render(data);
+}
+
+async function init(){
+  const months = await loadMonthList();
+  monthSelect.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join("");
+
+  if(SHEET_API_URL){
+    // Walk backwards from the most recent tab until we find one with real data
+    let chosen = null;
+    for(let i = months.length - 1; i >= 0; i--){
+      try{
+        await fetchMonthRaw(months[i]);
+        chosen = months[i];
+        break;
+      }catch(err){
+        console.warn("Skipping empty/invalid month tab:", months[i], err.message);
+      }
+    }
+    monthSelect.value = chosen || months[months.length - 1];
+  } else {
+    monthSelect.value = months[months.length - 1];
+  }
+
+  await refresh();
+}
+
+monthSelect.addEventListener("change", refresh);
+document.getElementById("refreshBtn").addEventListener("click", refresh);
+init();
+if(SHEET_API_URL){ setInterval(refresh, POLL_INTERVAL_MS); }
+</script>
+</body>
+</html>
